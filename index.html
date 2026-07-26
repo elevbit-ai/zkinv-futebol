@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zkinv - Previsor de Partidas de Futebol</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js para visualização de gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- jsPDF para gerar PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300;400;700&display=swap');
+        
+        :root {
+            --bg-color: #0D0221;
+            --primary-glow: #00C2FF;
+            --secondary-glow: #FF00C7;
+            --border-color: rgba(0, 194, 255, 0.2);
+            --card-bg: rgba(10, 5, 25, 0.5);
+        }
+
+        body {
+            font-family: 'Roboto Mono', monospace;
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(at 20% 20%, hsla(284, 90%, 25%, 0.4) 0px, transparent 50%),
+                radial-gradient(at 80% 20%, hsla(190, 95%, 35%, 0.4) 0px, transparent 50%),
+                radial-gradient(at 20% 80%, hsla(320, 90%, 45%, 0.4) 0px, transparent 50%),
+                radial-gradient(at 80% 80%, hsla(210, 95%, 40%, 0.4) 0px, transparent 50%);
+            animation: gradient-animation 15s ease infinite;
+            background-size: 200% 200%;
+        }
+
+        @keyframes gradient-animation {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .quantum-border {
+            border: 1px solid var(--border-color);
+        }
+        
+        .main-container {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+        }
+
+        input[type="text"], input[type="password"] {
+            background: rgba(0, 0, 10, 0.7);
+            border-color: var(--border-color);
+            transition: all 0.3s ease;
+        }
+        input[type="text"]:focus, input[type="password"]:focus {
+            border-color: var(--primary-glow);
+            box-shadow: 0 0 10px rgba(0, 194, 255, 0.5);
+            outline: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, var(--primary-glow), var(--secondary-glow));
+            transition: all 0.3s ease;
+            box-shadow: 0 0 15px rgba(0, 194, 255, 0.4), 0 0 15px rgba(255, 0, 199, 0.4);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 25px rgba(0, 194, 255, 0.6), 0 0 25px rgba(255, 0, 199, 0.6);
+        }
+        .btn-primary:disabled {
+            background: #374151;
+            box-shadow: none;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loader {
+            border-top-color: var(--primary-glow);
+            animation: spin 1.5s cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .result-card {
+             background: var(--card-bg);
+             backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+    </style>
+</head>
+<body class="text-gray-200 min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div class="w-full max-w-7xl main-container rounded-2xl shadow-2xl p-4 md:p-8">
+        
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-pink-400">Analisador Preditivo de Futebol Zkinv</h1>
+            <p class="text-gray-400 mt-2">Análises de Partidas com Inteligência Artificial</p>
+        </header>
+
+        <!-- Seção para Chave de API -->
+        <div class="mb-8 p-4 quantum-border rounded-lg text-center bg-black/20">
+            <h3 class="text-lg font-semibold text-pink-400 mb-2">Chave da IA Gemini</h3>
+            <p class="text-gray-400 text-sm mb-3">Insira sua chave do Google Gemini para habilitar a geração de dados e a análise preditiva.</p>
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-2">
+                <input type="password" id="gemini-api-key-input" class="block w-full sm:w-96 p-2.5 text-center text-gray-300 rounded-lg" placeholder="Cole sua chave do Gemini aqui">
+                <button id="save-keys-btn" class="bg-indigo-600 text-white font-bold py-2.5 px-6 rounded-lg hover:bg-indigo-500 transition-all duration-300 w-full sm:w-auto">Salvar Chave</button>
+            </div>
+            <p id="api-key-status" class="text-cyan-400 mt-2 text-sm h-4"></p>
+        </div>
+
+        <main>
+            <!-- Área de busca de time -->
+            <div class="flex flex-col items-center justify-center gap-4">
+                <input type="text" id="team-search-input" placeholder="Digite o nome do time (ex: Flamengo)" class="p-2.5 w-full max-w-lg text-center text-gray-300 rounded-lg">
+                <button id="generateAnalysisBtn" class="btn-primary text-white font-bold py-3 px-10 rounded-lg flex items-center justify-center w-full md:w-auto mx-auto">
+                    <span id="buttonText">Gerar Análise</span>
+                    <div id="loader" class="loader w-6 h-6 rounded-full border-4 border-t-transparent ml-4 hidden"></div>
+                </button>
+            </div>
+
+            <!-- Seção de resultados -->
+            <div id="output-container" class="mt-10 hidden">
+                <div class="text-center mb-6">
+                    <button id="savePdfBtn" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-500 transition-all duration-300">
+                        Salvar Relatório em PDF
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+                    <!-- Coluna do Gráfico -->
+                    <div class="result-card p-4 rounded-lg quantum-border">
+                        <h2 id="chart-title" class="text-xl font-semibold text-cyan-300 mb-4">Análise de Desempenho Recente</h2>
+                        <div class="chart-container">
+                            <canvas id="matchChart"></canvas>
+                        </div>
+                        <div id="chart-info" class="text-center mt-4 text-sm grid grid-cols-2 gap-2"></div>
+                    </div>
+                    <!-- Coluna do Relatório da IA -->
+                    <div class="result-card p-4 rounded-lg min-h-[400px] quantum-border">
+                        <h2 id="report-title" class="text-xl font-semibold text-cyan-300 border-b-2 quantum-border pb-2 mb-4">Relatório Preditivo da Partida</h2>
+                        <div id="output" class="whitespace-pre-wrap word-wrap break-word text-sm md:text-base leading-relaxed"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+        <!-- CARTÃO DE DOAÇÃO -->
+        <div class="donation-card mt-12 bg-black/20 quantum-border">
+            <p>Apoie este projeto com uma doação via PIX.</p>
+            <div class="pix-code-container">
+                <div id="pix-code" class="text-cyan-300 text-xs p-2 rounded bg-gray-900 mt-1 cursor-pointer" onclick="App.ui.copyPixCode()">00020101021126370014br.gov.bcb.pix0115pagamento@bk.ru5204000053039865802BR5925Joaquim Pedro De Morais F6009Sao Paulo62070503***63043A02</div>
+            </div>
+            <button class="btn-primary text-white font-bold py-2 px-4 rounded-lg mt-4 text-sm" onclick="App.ui.copyPixCode()">Copiar Código PIX</button>
+            <div class="qr-code">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=00020101021126370014br.gov.bcb.pix0115pagamento@bk.ru5204000053039865802BR5925Joaquim Pedro De Morais F6009Sao Paulo62070503***63043A02" alt="QR Code para Doação">
+            </div>
+        </div>
+
+    </div>
+
+    <footer class="text-center mt-8 text-gray-500 text-sm">
+        <p>Criado por Joaquim Pedro de Morais Filho</p>
+        <p>Aviso: Este sistema é uma ferramenta de estudo e não representa recomendação de aposta.</p>
+    </footer>
+
+    <!-- Modal de Notificação -->
+    <div id="notification-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 hidden">
+        <div class="main-container rounded-lg p-6 max-w-sm text-center">
+            <p id="modal-message" class="text-white mb-4">Mensagem aqui.</p>
+            <button id="modal-close-btn" class="btn-primary text-white font-bold py-2 px-6 rounded-lg">OK</button>
+        </div>
+    </div>
+
+    <script>
+        // --- MÓDULO PRINCIPAL DA APLICAÇÃO ---
+        const App = {
+            // --- ESTADO E CONFIGURAÇÕES ---
+            state: {
+                isAnalysisRunning: false,
+                matchChart: null,
+            },
+            config: {
+                GEMINI_API_KEY: "",
+            },
+            
+            // --- REFERÊNCIAS AOS ELEMENTOS DO DOM ---
+            dom: {
+                teamSearchInput: document.getElementById('team-search-input'),
+                generateAnalysisBtn: document.getElementById('generateAnalysisBtn'),
+                outputContainer: document.getElementById('output-container'),
+                outputPre: document.getElementById('output'),
+                chartTitle: document.getElementById('chart-title'),
+                reportTitle: document.getElementById('report-title'),
+                savePdfBtn: document.getElementById('savePdfBtn'),
+                chartInfo: document.getElementById('chart-info'),
+                geminiApiKeyInput: document.getElementById('gemini-api-key-input'),
+                saveKeysBtn: document.getElementById('save-keys-btn'),
+                apiKeyStatus: document.getElementById('api-key-status'),
+                notificationModal: document.getElementById('notification-modal'),
+                modalMessage: document.getElementById('modal-message'),
+                modalCloseBtn: document.getElementById('modal-close-btn'),
+                loader: document.getElementById('loader'),
+                buttonText: document.getElementById('buttonText'),
+            },
+
+            // --- MÓDULO DE API ---
+            api: {
+                async fetchWithExponentialBackoff(url, options, retries = 5) {
+                    let delay = 1000;
+                    for (let i = 0; i < retries; i++) {
+                        try {
+                            const response = await fetch(url, options);
+                            if (response.status === 429 || response.status >= 500) {
+                                throw new Error(`Servidor respondeu com status ${response.status}`);
+                            }
+                            return response;
+                        } catch (error) {
+                            if (i === retries - 1) throw error;
+                            console.warn(`Falha na requisição, tentando novamente em ${delay}ms... (${i + 1}/${retries})`);
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            delay *= 2;
+                        }
+                    }
+                },
+                async callGeminiAPI(prompt) {
+                    if (!App.config.GEMINI_API_KEY) {
+                        throw new Error("Chave da API do Gemini não configurada.");
+                    }
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${App.config.GEMINI_API_KEY}`;
+                    const response = await this.fetchWithExponentialBackoff(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                    });
+                    if (!response.ok) {
+                         const errorBody = await response.json().catch(() => ({}));
+                         const errorMessage = errorBody?.error?.message || `API Gemini respondeu com status ${response.status}`;
+                         throw new Error(errorMessage);
+                    }
+                    const result = await response.json();
+                    if (!result.candidates || !result.candidates[0].content.parts[0].text) {
+                        throw new Error("Resposta inválida da API Gemini.");
+                    }
+                    return result.candidates[0].content.parts[0].text;
+                }
+            },
+
+            // --- LÓGICA DE NEGÓCIO E PROCESSAMENTO ---
+            logic: {
+                createDataGenerationPrompt(teamName) {
+                    return `Atue como um provedor de dados esportivos. Para o time '${teamName}', gere um objeto JSON com dados estatísticos realistas e plausíveis para a sua próxima partida. O oponente deve ser um rival comum e crível. O JSON deve ter a seguinte estrutura e nada mais: { "homeTeam": { "name": "string", "form": "string (ex: WDWLW)", "goalsFor": int, "goalsAgainst": int, "gamesPlayed": int }, "awayTeam": { "name": "string", "form": "string", "goalsFor": int, "goalsAgainst": int, "gamesPlayed": int }, "h2h": { "homeWins": int, "awayWins": int, "draws": int, "total": int } }. Gere apenas o objeto JSON, sem formatação extra ou markdown.`;
+                },
+                extractJsonFromResponse(text) {
+                    const match = text.match(/\{[\s\S]*\}/);
+                    if (match) {
+                        try {
+                            return JSON.parse(match[0]);
+                        } catch (e) {
+                            console.error("Falha ao analisar JSON extraído:", e);
+                            throw new Error("A IA gerou um JSON inválido para os dados da partida.");
+                        }
+                    }
+                    throw new Error("Nenhum JSON válido encontrado na resposta da IA para os dados da partida.");
+                },
+                createAIPrompt(data) {
+                    const homeGames = data.homeTeam.gamesPlayed || 1;
+                    const awayGames = data.awayTeam.gamesPlayed || 1;
+                    const homeAvgGoalsFor = (data.homeTeam.goalsFor / homeGames).toFixed(2);
+                    const homeAvgGoalsAgainst = (data.homeTeam.goalsAgainst / homeGames).toFixed(2);
+                    const awayAvgGoalsFor = (data.awayTeam.goalsFor / awayGames).toFixed(2);
+                    const awayAvgGoalsAgainst = (data.awayTeam.goalsAgainst / awayGames).toFixed(2);
+                    
+                    return `
+                        AVISO: Os dados a seguir foram gerados por IA para fins de demonstração e podem não refletir estatísticas em tempo real.
+
+                        Como uma IA especialista em análise de dados esportivos, execute uma análise preditiva para a partida de futebol entre ${data.homeTeam.name} (mandante) e ${data.awayTeam.name} (visitante).
+
+                        **Dados Estatísticos Disponíveis:**
+
+                        1.  **Desempenho Recente (${data.homeTeam.name}):**
+                            - Sequência (últimos jogos): ${data.homeTeam.form} (W=Vitória, D=Empate, L=Derrota)
+                            - Média de Gols Marcados/Jogo: ${homeAvgGoalsFor}
+                            - Média de Gols Sofridos/Jogo: ${homeAvgGoalsAgainst}
+
+                        2.  **Desempenho Recente (${data.awayTeam.name}):**
+                            - Sequência (últimos jogos): ${data.awayTeam.form}
+                            - Média de Gols Marcados/Jogo: ${awayAvgGoalsFor}
+                            - Média de Gols Sofridos/Jogo: ${awayAvgGoalsAgainst}
+
+                        3.  **Confronto Direto (Head-to-Head):**
+                            - Total de Partidas: ${data.h2h.total}
+                            - Vitórias de ${data.homeTeam.name}: ${data.h2h.homeWins}
+                            - Empates: ${data.h2h.draws}
+                            - Vitórias de ${data.awayTeam.name}: ${data.h2h.awayWins}
+
+                        **Sua Tarefa (Seja estritamente matemático e objetivo):**
+                        1.  **Análise Quantitativa:** Avalie a forma atual, consistência defensiva/ofensiva (médias de gols) e o histórico de confrontos.
+                        2.  **Cálculo de Probabilidades:** Calcule as probabilidades percentuais para: Vitória do ${data.homeTeam.name}, Empate, e Vitória do ${data.awayTeam.name}. A soma deve ser 100%.
+                        3.  **Justificativa Técnica:** Explique concisamente o raciocínio matemático por trás das probabilidades, citando os dados mais influentes.
+                        4.  **Recomendação Final:** Apresente o resultado no formato obrigatório abaixo.
+
+                        **Formato da Resposta (obrigatório):**
+                        Probabilidade de Vitória (${data.homeTeam.name}): [XX.X]%
+                        Probabilidade de Empate: [YY.Y]%
+                        Probabilidade de Vitória (${data.awayTeam.name}): [ZZ.Z]%
+                        Justificativa Técnica: [Sua análise detalhada e objetiva aqui, com no máximo 150 palavras]
+                        RESULTADO MAIS PROVÁVEL: [VITÓRIA ${data.homeTeam.name.toUpperCase()}, EMPATE ou VITÓRIA ${data.awayTeam.name.toUpperCase()}]
+                    `;
+                }
+            },
+
+            // --- CONTROLE DA UI ---
+            ui: {
+                showModal(message) {
+                    App.dom.modalMessage.textContent = message;
+                    App.dom.notificationModal.classList.remove('hidden');
+                },
+                setLoading(isLoading, text = '') {
+                    App.state.isAnalysisRunning = isLoading;
+                    App.dom.generateAnalysisBtn.disabled = isLoading;
+                    if (isLoading) {
+                        App.dom.buttonText.textContent = text;
+                        App.dom.loader.classList.remove('hidden');
+                    } else {
+                        App.dom.buttonText.textContent = 'Gerar Análise';
+                        App.dom.loader.classList.add('hidden');
+                    }
+                },
+                showOutput(content, title) {
+                    App.dom.outputContainer.classList.remove('hidden');
+                    App.dom.reportTitle.textContent = `Relatório Preditivo: ${title}`;
+                    let styledContent = content.replace(/\*/g, '');
+                    styledContent = styledContent.replace(/(VITÓRIA\s[A-Z\sÀ-Úà-ú]+)/g, '<span class="font-bold text-green-400">$1</span>');
+                    styledContent = styledContent.replace(/EMPATE/g, '<span class="font-bold text-yellow-400">EMPATE</span>');
+                    App.dom.outputPre.innerHTML = styledContent;
+                    App.dom.outputContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                },
+                copyPixCode() {
+                    const pixCode = document.getElementById('pix-code').textContent;
+                    try {
+                        navigator.clipboard.writeText(pixCode).then(() => {
+                            App.ui.showModal('Código PIX copiado!');
+                        });
+                    } catch (e) {
+                        console.error('Falha ao copiar o código PIX.', e);
+                        App.ui.showModal('Falha ao copiar o código.');
+                    }
+                },
+                renderMatchChart(data) {
+                    const homeTeam = data.homeTeam;
+                    const awayTeam = data.awayTeam;
+                    const h2h = data.h2h;
+
+                    App.dom.chartTitle.textContent = `Desempenho: ${homeTeam.name} vs ${awayTeam.name}`;
+                    App.dom.chartInfo.innerHTML = `
+                        <div class="text-left"><p class="font-bold">${homeTeam.name}</p><p>Forma: ${homeTeam.form || 'N/A'}</p><p>Gols (P/C): ${homeTeam.goalsFor}/${homeTeam.goalsAgainst}</p></div>
+                        <div class="text-right"><p class="font-bold">${awayTeam.name}</p><p>Forma: ${awayTeam.form || 'N/A'}</p><p>Gols (P/C): ${awayTeam.goalsFor}/${awayTeam.goalsAgainst}</p></div>
+                        <div class="col-span-2 text-center mt-2 border-t border-gray-700 pt-2"><p class="font-bold">Confronto Direto (H2H)</p><p>${h2h.total} jogos: ${h2h.homeWins} V. ${homeTeam.name} / ${h2h.draws} E / ${h2h.awayWins} V. ${awayTeam.name}</p></div>
+                    `;
+                    
+                    const wins = [ (homeTeam.form.match(/W/g) || []).length, (awayTeam.form.match(/W/g) || []).length ];
+                    const draws = [ (homeTeam.form.match(/D/g) || []).length, (awayTeam.form.match(/D/g) || []).length ];
+                    const losses = [ (homeTeam.form.match(/L/g) || []).length, (awayTeam.form.match(/L/g) || []).length ];
+
+                    const ctx = document.getElementById('matchChart').getContext('2d');
+                    if (App.state.matchChart) App.state.matchChart.destroy();
+                    App.state.matchChart = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: ['Vitórias', 'Empates', 'Derrotas'],
+                            datasets: [
+                                { label: homeTeam.name, data: [wins[0], draws[0], losses[0]], backgroundColor: 'rgba(0, 194, 255, 0.6)', borderColor: 'rgba(0, 194, 255, 1)', borderWidth: 1 },
+                                { label: awayTeam.name, data: [wins[1], draws[1], losses[1]], backgroundColor: 'rgba(255, 0, 199, 0.6)', borderColor: 'rgba(255, 0, 199, 1)', borderWidth: 1 }
+                            ]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false,
+                            scales: { 
+                                y: { beginAtZero: true, ticks: { stepSize: 1, color: '#9ca3af' }, title: { display: true, text: 'Resultados (Últimos Jogos)', color: '#9ca3af' } }, 
+                                x: { ticks: { color: '#9ca3af' } } 
+                            },
+                            plugins: { 
+                                legend: { labels: { color: '#e5e7eb' } },
+                                tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${c.parsed.y} jogos` } }
+                            }
+                        }
+                    });
+                },
+                generatePDF() {
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+                    const reportContent = App.dom.outputPre.innerText;
+                    const chartImage = document.getElementById('matchChart').toDataURL('image/png', 1.0);
+                    const matchTitle = App.dom.reportTitle.textContent.replace('Relatório Preditivo: ', '');
+                    const pageWidth = doc.internal.pageSize.getWidth();
+                    const margin = 15;
+                    let y = 20;
+
+                    doc.setFontSize(18);
+                    doc.text(`Relatório Preditivo Zkinv`, pageWidth / 2, y, { align: 'center' });
+                    y += 8;
+                    doc.setFontSize(14);
+                    doc.text(matchTitle, pageWidth / 2, y, { align: 'center' });
+                    y += 15;
+                    doc.addImage(chartImage, 'PNG', margin, y, pageWidth - (margin * 2), 90);
+                    y += 100;
+                    doc.setFontSize(11);
+                    doc.setFont('Helvetica', 'normal');
+                    const splitText = doc.splitTextToSize(reportContent, pageWidth - (margin * 2));
+                    splitText.forEach(line => {
+                        if (y + 10 > doc.internal.pageSize.getHeight() - margin) { doc.addPage(); y = margin; }
+                        doc.text(line, margin, y);
+                        y += 6;
+                    });
+                    const finalY = doc.internal.pageSize.getHeight() - 20;
+                    doc.setFontSize(9);
+                    doc.text('Gerado por Zkinv - Analisador Preditivo de Futebol', pageWidth / 2, finalY, { align: 'center' });
+                    doc.save(`Relatorio_Zkinv_${matchTitle.replace(/\s/g, '_')}.pdf`);
+                }
+            },
+
+            // --- MANIPULADORES DE EVENTOS ---
+            events: {
+                handleSaveKeys() {
+                    const geminiKey = App.dom.geminiApiKeyInput.value.trim();
+                    if (geminiKey) {
+                        localStorage.setItem('geminiApiKey', geminiKey);
+                        App.config.GEMINI_API_KEY = geminiKey;
+                        App.dom.apiKeyStatus.textContent = 'Chave do Gemini salva!';
+                        setTimeout(() => App.dom.apiKeyStatus.textContent = '', 3000);
+                        App.dom.geminiApiKeyInput.value = '';
+                    } else {
+                        App.ui.showModal('Por favor, insira a chave da API do Gemini.');
+                    }
+                },
+                loadKeys() {
+                    const geminiKey = localStorage.getItem('geminiApiKey');
+                    if (geminiKey) {
+                        App.config.GEMINI_API_KEY = geminiKey;
+                        App.dom.apiKeyStatus.textContent = 'Chave do Gemini carregada.';
+                        setTimeout(() => App.dom.apiKeyStatus.textContent = '', 3000);
+                    }
+                },
+                async handleAnalysisRequest() {
+                    if (App.state.isAnalysisRunning) return;
+                    
+                    const teamName = App.dom.teamSearchInput.value.trim();
+                    if (!teamName) {
+                        App.ui.showModal("Por favor, digite o nome de um time.");
+                        return;
+                    }
+                     if (!App.config.GEMINI_API_KEY) {
+                        App.ui.showModal("Por favor, insira sua chave de API do Google Gemini para iniciar a análise.");
+                        return;
+                    }
+
+                    App.ui.setLoading(true, "Gerando Dados com IA...");
+                    App.dom.outputContainer.classList.add('hidden');
+
+                    try {
+                        const dataGenerationPrompt = App.logic.createDataGenerationPrompt(teamName);
+                        const rawDataResponse = await App.api.callGeminiAPI(dataGenerationPrompt);
+                        const matchData = App.logic.extractJsonFromResponse(rawDataResponse);
+                        
+                        App.ui.setLoading(true, "Gerando Gráfico...");
+                        App.ui.renderMatchChart(matchData);
+                        
+                        App.ui.setLoading(true, "Análise Preditiva IA...");
+                        const aiPrediction = await App.api.callGeminiAPI(App.logic.createAIPrompt(matchData));
+                        App.ui.showOutput(aiPrediction, `${matchData.homeTeam.name} vs ${matchData.awayTeam.name}`);
+
+                    } catch (error) {
+                        console.error("Erro no processo de análise:", error);
+                        App.ui.showModal(`Erro na análise: ${error.message}`);
+                    } finally {
+                        App.ui.setLoading(false);
+                    }
+                },
+            },
+
+            // --- FUNÇÃO DE INICIALIZAÇÃO ---
+            async init() {
+                this.dom.saveKeysBtn.addEventListener('click', this.events.handleSaveKeys);
+                this.dom.generateAnalysisBtn.addEventListener('click', this.events.handleAnalysisRequest);
+                this.dom.teamSearchInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        this.events.handleAnalysisRequest();
+                    }
+                });
+                this.dom.modalCloseBtn.addEventListener('click', () => this.dom.notificationModal.classList.add('hidden'));
+                this.dom.savePdfBtn.addEventListener('click', this.ui.generatePDF);
+                
+                this.events.loadKeys();
+            }
+        };
+
+        // --- INICIALIZA A APLICAÇÃO ---
+        document.addEventListener('DOMContentLoaded', () => App.init());
+    </script>
+</body>
+</html>
