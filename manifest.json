@@ -1,0 +1,17 @@
+{
+  "name": "zkinv Futebol",
+  "short_name": "zkinv Fut",
+  "description": "Previsor de partidas de futebol com analise preditiva por IA.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "lang": "pt-BR",
+  "background_color": "#06220F",
+  "theme_color": "#39D353",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

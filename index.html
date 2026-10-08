@@ -92,6 +92,11 @@
             -webkit-backdrop-filter: blur(10px);
         }
     </style>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#39D353">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
 </head>
 <body class="text-gray-200 min-h-screen flex flex-col items-center justify-center p-4">
 
@@ -501,5 +506,6 @@
         // --- INICIALIZA A APLICAÇÃO ---
         document.addEventListener('DOMContentLoaded', () => App.init());
     </script>
+    <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
 </body>
 </html>
